@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metatron878 Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; font-family:'Montserrat',sans-serif; }
+  body { background:#0d0d0d; color:#fff; line-height:1.5; }
+  a { color:#ff0066; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  header { background:linear-gradient(90deg,#ff0055,#ff3388); padding:20px 10px; text-align:center; position:sticky; top:0; z-index:999; box-shadow:0 4px 6px rgba(0,0,0,.5); }
+  header h1 { font-size:2.2rem; }
+  nav { margin-top:10px; }
+  nav a { margin:0 10px; font-weight:700; padding:8px 12px; border-radius:5px; transition:.3s; background:rgba(0,0,0,.2); }
+  nav a:hover { background:#fff; color:#111; }
+  section { padding:60px 20px; max-width:1100px; margin:0 auto; }
+  h2 { color:#ff3388; margin-bottom:30px; text-align:center; font-size:2rem; }
+  input, textarea, button, select { width:100%; padding:14px; margin-bottom:15px; border-radius:6px; border:none; font-size:1rem; }
+  input, textarea, select { background:#222; color:#fff; }
+  textarea { resize:vertical; min-height:80px; }
+  button { background:#ff0066; color:#fff; font-weight:700; cursor:pointer; transition:.3s; }
+  button:hover { background:#ff3399; }
+  #message,#ownerMessage { text-align:center; margin:10px 0; font-weight:700; }
+  
+  /* Artist Grid Styles */
+  .artist-grid { display:grid; gap:25px; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); }
+  .artist-card { background:#1a1a1a; border-radius:10px; overflow:hidden; position:relative; transition:.3s; box-shadow:0 4px 10px rgba(0,0,0,.5); }
+  .artist-card:hover { transform:translateY(-5px); box-shadow:0 8px 20px rgba(255,0,102,.5); }
+  .artist-card img { width:100%; height:180px; object-fit:cover; }
+  .artist-card-content { padding:15px; }
+  .artist-card h3 { color:#ff0055; margin-bottom:8px; }
+  .artist-card p { font-size:.9rem; margin-bottom:8px; }
+  .artist-card .status { font-weight:bold; margin-top:10px; }
+  .approved { border:2px solid #0f0; }
+  .rejected { border:2px solid #f00; opacity:.7; }
+
+  /* Interactive Studio Tracking Styles */
+  .studio-grid { display:grid; gap:25px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+  .studio-card { background:#1a1a1a; padding:20px; border-radius:10px; border-left:5px solid #ff0055; box-shadow:0 4px 10px rgba(0,0,0,.5); }
+  .studio-card h3 { color:#fff; margin-bottom:15px; display:flex; justify-content:between; align-items:center; }
+  .room-status { font-size:0.8rem; padding:4px 8px; border-radius:4px; font-weight:bold; float:right; }
+  .status-active { background:#00ff66; color:#000; }
+  .status-vacant { background:#555; color:#fff; }
+  
+  /* Live Tracker Console */
+  .tracker-console { background:#111; padding:15px; border-radius:6px; border:1px solid #333; margin-top:10px; }
+  .track-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #222; font-size:0.9rem; }
+  .track-row:last-child { border-bottom:none; }
+  .badge { background:#ff3388; padding:2px 6px; border-radius:4px; font-size:0.75rem; font-weight:bold; }
+  
+  /* Calculator Widget */
+  .calc-box { background:#1a1a1a; padding:25px; border-radius:10px; margin-top:30px; border:1px dashed #ff0055; text-align:center; }
+  .calc-box h3 { color:#ff3388; margin-bottom:15px; }
+  .total-display { font-size:2rem; font-weight:bold; color:#00ff66; margin-top:10px; }
+
+  footer { text-align:center; padding:25px; background:#1a1a1a; color:#aaa; margin-top:30px; }
+  @media(max-width:600px){ header h1{font-size:1.6rem;} h2{font-size:1.5rem;} }
+</style>
+<script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+<script>
+(function(){ emailjs.init("mzwaLKkRmeJAU0wGG"); })();
+let artistList=[];
+
+// Active Live Tracks Data
+let liveTracks = [
+  { id: 1, name: "Vocal_Take_3", type: "Recording", room: "Studio A", time: "14:23" },
+  { id: 2, name: "Bass_Line_Final", type: "Overdub", room: "Studio B", time: "14:41" }
+];
+
+function submitArtist(){
+  const name=document.getElementById('artistName').value.trim();
+  const email=document.getElementById('artistEmail').value.trim();
+  const genre=document.getElementById('artistGenre').value.trim();
+  const link=document.getElementById('artistLink').value.trim();
+  const img=document.getElementById('artistImg').value.trim();
+  const messageEl=document.getElementById('message');
+  if(!name||!email||!genre){ messageEl.style.color="#f00"; messageEl.textContent="Fill required fields!"; return; }
+  const artist={name,email,genre,link,img,status:"pending"};
+  artistList.push(artist);
+  updateArtistGrid();
+  const templateParams={from_name:name,from_email:email,genre,link,img};
+  emailjs.send("service_xxxx","template_xxxx",templateParams)
+    .then(()=>{ messageEl.style.color="#0f0"; messageEl.textContent="Submitted!"; document.getElementById('artistForm').reset(); },
+          err=>{ messageEl.style.color="#f00"; messageEl.textContent="Error!"; console.error(err); });
+}
+
+function updateArtistGrid(){
+  const grid=document.getElementById('artistGrid');
+  grid.innerHTML="";
+  artistList.forEach((a,i)=>{
+    const card=document.createElement('div');
+    card.className="artist-card";
+    if(a.status==="approved") card.classList.add("approved");
+    if(a.status==="rejected") card.classList.add("rejected");
+    card.innerHTML=`${a.img?`<img src="${a.img}" alt="${a.name}">`:''}<div class="artist-card-content">
+    <h3>${a.name}</h3><p>Genre: ${a.genre}</p>${a.link?`<p>Portfolio: <a href="${a.link}" target="_blank">Link</a></p>`:''}
+    ${a.status==="pending"?`<div style="text-align:center;">
+      <button onclick="approveArtist(${i})" style="width:45%; margin:2.5%; padding:8px;">Approve</button>
+      <button onclick="rejectArtist(${i})" style="width:45%; margin:2.5%; padding:8px; background:#444;">Reject</button></div>`:`<p class="status">Status: ${a.status.toUpperCase()}</p>`}
+    </div>`;
+    grid.appendChild(card);
+  });
+}
+
+function approveArtist(i){ artistList[i].status="approved"; updateArtistGrid(); alert(`${artistList[i].name} approved!`); }
+function rejectArtist(i){ artistList[i].status="rejected"; updateArtistGrid(); }
+
+function checkOwnerCode(){
+  const code=document.getElementById('ownerCode').value.trim();
+  const msg=document.getElementById('ownerMessage');
+  const sub=document.getElementById('artistSubmissions');
+  if(code==="METATRON878"){ msg.style.color="#0f0"; msg.textContent="Owner access granted!"; sub.style.display="block"; } 
+  else{ msg.style.color="#f00"; msg.textContent="Wrong code!"; }
+}
+
+// Add Track to Live Console Functionality
+function logLiveTrack(){
+  const trackName = document.getElementById('newTrackName').value.trim();
+  const trackType = document.getElementById('trackType').value;
+  const targetRoom = document.getElementById('targetRoom').value;
+  
+  if(!trackName) return alert("Please enter a track title!");
+  
+  const now = new Date();
+  const timestamp = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  
+  const newTrack = {
+    id: Date.now(),
+    name: trackName.replace(/\s+/g, '_'),
+    type: trackType,
+    room: targetRoom,
+    time: timestamp
+  };
+  
+  liveTracks.unshift(newTrack);
+  renderLiveTracks();
+  document.getElementById('newTrackName').value = "";
+}
+
+function renderLiveTracks() {
+  const containerA = document.getElementById('tracksStudioA');
+  const containerB = document.getElementById('tracksStudioB');
+  
+  containerA.innerHTML = "";
+  containerB.innerHTML = "";
+  
+  liveTracks.forEach(track => {
+    const row = document.createElement('div');
+    row.className = "track-row";
+    row.innerHTML = `<span>🎵 ${track.name} <span class="badge">${track.type}</span></span> <span>${track.time}</span>`;
+    
+    if(track.room === "Studio A") {
+      containerA.appendChild(row);
+    } else {
+      containerB.appendChild(row);
+    }
+  });
+  
+  // Set empty state placeholders if rooms are dry
+  if(!containerA.children.length) containerA.innerHTML = '<p style="color:#666; font-size:0.9rem; text-align:center;">No tracks active.</p>';
+  if(!containerB.children.length) containerB.innerHTML = '<p style="color:#666; font-size:0.9rem; text-align:center;">No tracks active.</p>';
+}
+
+// Session Cost Estimation Calculator
+function calculateCost() {
+  const hours = parseFloat(document.getElementById('calcHours').value) || 0;
+  const engineering = document.getElementById('calcEngineer').value === "yes" ? 25 : 0;
+  const baseRate = 50; // $50/hr base studio time
+  
+  const total = hours * (baseRate + engineering);
+  document.getElementById('totalCostDisplay').textContent = `$${total.toFixed(2)}`;
+}
+
+// Run initial renders on load
+window.onload = function() {
+  renderLiveTracks();
+};
+</script>
+</head>
+<body>
+
+<header>
+  <h1>Metatron878 Studio</h1>
+  <nav>
+    <a href="#submit">Submit</a>
+    <a href="#artists">Artists</a>
+    <a href="#tracking">Live Tracking</a>
+    <a href="#owner">Owner</a>
+  </nav>
+</header>
+
+<section id="submit">
+<h2>Artist Submission</h2>
+<form id="artistForm" onsubmit="event.preventDefault(); submitArtist();">
+  <input type="text" id="artistName" placeholder="Artist Name *" required>
+  <input type="email" id="artistEmail" placeholder="Email *" required>
+  <input type="text" id="artistGenre" placeholder="Genre *" required>
+  <input type="url" id="artistLink" placeholder="Portfolio Link (Optional)">
+  <input type="url" id="artistImg" placeholder="Image URL (Optional)">
+  <button type="submit">Submit Applications</button>
+</form>
+<div id="message"></div>
+</section>
+
+<section id="artists">
+<h2>Artists Portfolio</h2>
+<div id="artistGrid" class="artist-grid">
+  </div>
+</section>
+
+<section id="tracking">
+<h2>Live Session Monitor</h2>
+<div style="background:#1a1a1a; padding:20px; border-radius:10px; margin-bottom:30px;">
+  <h3 style="margin-bottom:15px; color:#ff3388;">Log Live Recording Track</h3>
+  <div style="display:grid; gap:15px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+    <input type="text" id="newTrackName" placeholder="Track Name (e.g., Lead Vocal Main)" style="margin-bottom:0;">
+    <select id="trackType" style="margin-bottom:0;">
+      <option value="Recording">Recording Stem</option>
+      <option value="Overdub">Overdub</option>
+      <option value="Mixing Phase">Mixing Phase</option>
+    </select>
+    <select id="targetRoom" style="margin-bottom:0;">
+      <option value="Studio A">Studio A (Main Room)</option>
+      <option value="Studio B">Studio B (Production Suite)</option>
+    </select>
+    <button onclick="logLiveTrack()" style="margin-bottom:0;">Send Track to Room</button>
+  </div>
+</div>
+
+<div class="studio-grid">
+  <div class="studio-card">
+    <h3>Studio A <span class="room-status status-active">LIVE TRACKING</span></h3>
+    <p style="color:#aaa; font-size:0.85rem; margin-bottom:10px;">Console: SSL AWS 948 Delta</p>
+    <div class="tracker-console">
+      <h4 style="font-size:0.85rem; color:#ff3388; margin-bottom:8px; border-bottom:1px dashed #333; padding-bottom:4px;">Active Multi-Track Stream</h4>
+      <div id="tracksStudioA"></div>
+    </div>
+  </div>
+
+  <div class="studio-card" style="border-left-color: #00ff66;">
+    <h3>Studio B <span class="room-status status-active">EDITING & BEATS</span></h3>
+    <p style="color:#aaa; font-size:0.85rem; margin-bottom:10px;">Console: Custom Neumann Control Rig</p>
+    <div class="tracker-console">
+      <h4 style="font-size:0.85rem; color:#00ff66; margin-bottom:8px; border-bottom:1px dashed #333; padding-bottom:4px;">Active Multi-Track Stream</h4>
+      <div id="tracksStudioB"></div>
+    </div>
+  </div>
+</div>
+
+<div class="calc-box">
+  <h3>Interactive Session Rate Estimator</h3>
+  <p style="color:#ccc; margin-bottom:15px; font-size:0.9rem;">Plan your project workspace parameters dynamically below:</p>
+  <div style="display:flex; justify-content:center; gap:20px; max-width:600px; margin:0 auto; flex-wrap:wrap;">
+    <div style="flex:1; min-width:150px;">
+      <label style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:5px;">Est. Booked Hours</label>
+      <input type="number" id="calcHours" value="2" min="1" oninput="calculateCost()">
+    </div>
+    <div style="flex:1; min-width:150px;">
+      <label style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:5px;">Dedicated Engineer?</label>
+      <select id="calcEngineer" onchange="calculateCost()">
+        <option value="no">Studio Space Only</option>
+        <option value="yes">Add Pro Engineer (+$25/hr)</option>
+      </select>
+    </div>
+  </div>
+  <div style="margin-top:15px;">
+    <p style="font-size:0.9rem; color:#aaa;">Estimated Space Cost Total:</p>
+    <div id="totalCostDisplay" class="total-display">$100.00</div>
+  </div>
+</div>
+</section>
+
+<section id="owner">
+<h2>Owner Access</h2>
+<input type="password" id="ownerCode" placeholder="Enter Owner Code">
+<button onclick="checkOwnerCode()">Unlock Admin Console</button>
+<div id="ownerMessage"></div>
+<div id="artistSubmissions" style="display:none;">
+  <h3>Pending Artist Submissions</h3>
+  <p>Use approve/reject buttons above under the Portfolio deck to handle incoming submissions natively.</p>
+</div>
+</section>
+
+<footer>
+  &copy; 2026 Metatron878 Studio. All rights reserved.<br>
+  Engineered for full hardware trackings, updates, and clean desktop/mobile management.
+</footer>
+
+</body>
+</html>
